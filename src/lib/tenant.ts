@@ -26,9 +26,32 @@ export interface AuthenticatedContext {
 
 /**
  * Siembra de forma idempotente el despacho demo inicial si la base de datos
- * está completamente vacía (útil para probar login demo al instante).
+ * está completamente vacía.
+ *
+ * SEGURIDAD: solo se ejecuta cuando SEED_DEMO=true está explícito y
+ * DEMO_ADMIN_PASSWORD define la contraseña del admin demo. Sin esas dos
+ * variables no siembra nada (nunca crea cuentas con contraseña conocida).
+ * No llamar desde rutas de autenticación ni de uso normal.
  */
 export async function ensureDemoOrganizationSeeded(): Promise<void> {
+  if (process.env.SEED_DEMO !== "true") {
+    return;
+  }
+
+  const demoPassword = process.env.DEMO_ADMIN_PASSWORD?.trim();
+  if (!demoPassword) {
+    console.warn(
+      "[seguridad] SEED_DEMO=true pero falta DEMO_ADMIN_PASSWORD: no se sembrará el despacho demo."
+    );
+    return;
+  }
+  if (demoPassword.length < 12) {
+    console.warn(
+      "[seguridad] DEMO_ADMIN_PASSWORD demasiado corta (mínimo 12 caracteres): no se sembrará el despacho demo."
+    );
+    return;
+  }
+
   const existingUser = await prisma.user.findUnique({
     where: { email: "a.mendoza@despachomendoza.mx" },
   });
@@ -36,7 +59,7 @@ export async function ensureDemoOrganizationSeeded(): Promise<void> {
     if (existingUser.passwordHash === "demo_hash_not_for_production") {
       await prisma.user.update({
         where: { id: existingUser.id },
-        data: { passwordHash: hashPassword("Concilia2026!") },
+        data: { passwordHash: hashPassword(demoPassword) },
       });
     }
     return;
@@ -63,7 +86,7 @@ export async function ensureDemoOrganizationSeeded(): Promise<void> {
       update: {},
       create: {
         email: "a.mendoza@despachomendoza.mx",
-        passwordHash: hashPassword("Concilia2026!"),
+        passwordHash: hashPassword(demoPassword),
         name: "C.P. Alejandro Mendoza",
         role: "ADMIN",
         organizationId: org.id,

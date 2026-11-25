@@ -10,6 +10,13 @@ export async function POST() {
     );
   }
 
+  if (process.env.SEED_DEMO !== "true") {
+    return NextResponse.json(
+      { error: "Siembra demo desactivada. Define SEED_DEMO=true para activarla." },
+      { status: 403 }
+    );
+  }
+
   try {
     const { organization } = await requireAuthSession();
     const seeded = await seedDemoPackage(organization.id);

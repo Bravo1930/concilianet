@@ -56,8 +56,16 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     } else {
-      // Modo desarrollo local sin STRIPE_WEBHOOK_SECRET
-      event = JSON.parse(rawBody) as Stripe.Event;
+      // Sin STRIPE_WEBHOOK_SECRET (o sin cliente Stripe) no se puede
+      // verificar la firma: rechazar el evento en lugar de confiar en el
+      // cuerpo sin verificar.
+      return NextResponse.json(
+        {
+          error:
+            "Webhook de Stripe no configurado (falta STRIPE_WEBHOOK_SECRET o STRIPE_SECRET_KEY)",
+        },
+        { status: 500 }
+      );
     }
   } catch (err) {
     return NextResponse.json(

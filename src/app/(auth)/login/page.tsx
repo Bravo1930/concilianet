@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Lock, Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { Lock, Mail, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,8 +19,8 @@ import { loginSchema } from "@/lib/validators/sat";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("a.mendoza@despachomendoza.mx");
-  const [password, setPassword] = useState("Concilia2026!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -133,21 +133,6 @@ export default function LoginPage() {
             className="w-full bg-emerald-700 text-white hover:bg-emerald-800"
           >
             {loading ? "Validando sesión..." : "Entrar al despacho"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={loading}
-            onClick={() =>
-              void performLogin(
-                "a.mendoza@despachomendoza.mx",
-                "Concilia2026!"
-              )
-            }
-            className="w-full"
-          >
-            <Sparkles className="mr-1.5 size-4 text-emerald-700" />
-            Entrar con Despacho Demo
           </Button>
           <p className="pt-1 text-center text-xs text-muted-foreground">
             ¿Tu despacho aún no tiene cuenta?{" "}

@@ -68,6 +68,20 @@ export async function seedDemoPackage(
       });
     }
   } else {
+    // La siembra del despacho demo (con usuario admin) exige una contraseña
+    // definida por variable de entorno. Nunca usar una contraseña fija.
+    const demoPassword = process.env.DEMO_ADMIN_PASSWORD?.trim();
+    if (!demoPassword) {
+      throw new Error(
+        "DEMO_ADMIN_PASSWORD no está configurado. Define DEMO_ADMIN_PASSWORD (mínimo 12 caracteres) para sembrar el despacho demo."
+      );
+    }
+    if (demoPassword.length < 12) {
+      throw new Error(
+        "DEMO_ADMIN_PASSWORD demasiado corta (mínimo 12 caracteres)."
+      );
+    }
+
     const demoOrg = await prisma.organization.upsert({
       where: { id: "org_demo_azcapotzalco" },
       update: {
@@ -90,7 +104,7 @@ export async function seedDemoPackage(
       update: {},
       create: {
         email: adminEmail,
-        passwordHash: hashPassword("Concilia2026!"),
+        passwordHash: hashPassword(demoPassword),
         name: "C.P. Ricardo Azcapotzalco",
         role: "ADMIN",
         organizationId: demoOrg.id,

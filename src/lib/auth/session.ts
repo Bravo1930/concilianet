@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 export interface SessionPayload {
   userId: string;
   organizationId: string;
@@ -10,11 +12,27 @@ export interface SessionPayload {
 export const SESSION_COOKIE_NAME = "conciliasat_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 días
 
+// Secreto aleatorio por arranque, solo para desarrollo local sin
+// SESSION_SECRET. Las sesiones no sobreviven reinicios en ese modo.
+let devOnlySecret: string | undefined;
+
 function getJwtSecret(): string {
-  return (
-    process.env.SESSION_SECRET?.trim() ||
-    "conciliasat-dev-secret-change-in-production-2026"
-  );
+  const configured = process.env.SESSION_SECRET?.trim();
+  if (configured) return configured;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "SESSION_SECRET no está configurado. Define SESSION_SECRET en las variables de entorno antes de iniciar en producción."
+    );
+  }
+
+  if (!devOnlySecret) {
+    devOnlySecret = randomBytes(32).toString("hex");
+    console.warn(
+      "[seguridad] SESSION_SECRET no configurado: usando un secreto aleatorio por arranque. Las sesiones no sobrevivirán reinicios. Define SESSION_SECRET en tu .env."
+    );
+  }
+  return devOnlySecret;
 }
 
 function base64UrlEncode(input: Uint8Array | string): string {

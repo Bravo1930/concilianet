@@ -3,7 +3,6 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { SESSION_COOKIE_NAME, signSessionToken } from "@/lib/auth/session";
-import { ensureDemoOrganizationSeeded } from "@/lib/tenant";
 
 const loginBodySchema = z.object({
   email: z.string().trim().toLowerCase().email("Correo inválido"),
@@ -12,8 +11,6 @@ const loginBodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    await ensureDemoOrganizationSeeded();
-
     const body = await req.json();
     const parsed = loginBodySchema.safeParse(body);
     if (!parsed.success) {
