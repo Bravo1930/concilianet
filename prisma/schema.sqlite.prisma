@@ -1,0 +1,220 @@
+// ConciliaSAT - Schema SQLite para pruebas locales rápidas (espejo exacto de schema.prisma)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma-sqlite"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("SQLITE_DATABASE_URL")
+}
+
+enum PlanTier {
+  FREE
+  INDEPENDIENTE
+  PYME
+  PRO
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum UserRole {
+  ADMIN
+  AUXILIAR
+}
+
+enum TipoComprobante {
+  I
+  E
+  P
+  N
+}
+
+enum MetodoPago {
+  PUE
+  PPD
+}
+
+enum CfdiDireccion {
+  EMITIDO
+  RECIBIDO
+}
+
+enum CfdiStatus {
+  PENDIENTE
+  PARCIAL
+  CONCILIADO
+}
+
+enum BankTransactionTipo {
+  ABONO
+  CARGO
+}
+
+enum BankTransactionStatus {
+  SIN_FACTURA
+  PARCIAL
+  CONCILIADO
+}
+
+enum MatchType {
+  EXACT_PUE
+  REP_PPD
+  SUBSET_SUM
+  TOLERANCE
+  MANUAL
+}
+
+enum ReconciliationStatus {
+  AUTO
+  SUGERIDO
+  APROBADO
+}
+
+model Organization {
+  id                   String             @id @default(cuid())
+  name                 String
+  plan                 PlanTier           @default(FREE)
+  maxRfcs              Int                @default(3)
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  subscriptionStatus   SubscriptionStatus @default(TRIALING)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  users   User[]
+  clients Client[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  passwordHash   String
+  name           String
+  role           UserRole @default(AUXILIAR)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Client {
+  id             String   @id @default(cuid())
+  rfc            String
+  razonSocial    String
+  regimenFiscal  String
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankAccounts     BankAccount[]
+  cfdis            Cfdi[]
+  bankTransactions BankTransaction[]
+  reconciliations  Reconciliation[]
+
+  @@unique([organizationId, rfc])
+  @@index([organizationId])
+  @@index([rfc])
+}
+
+model BankAccount {
+  id                String   @id @default(cuid())
+  clientId          String
+  bankName          String
+  last4Digits       String
+  currency          String   @default("MXN")
+  columnMappingJson Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  transactions BankTransaction[]
+
+  @@index([clientId])
+}
+
+model Cfdi {
+  id               String          @id @default(cuid())
+  clientId         String
+  uuid             String          @unique
+  tipoComprobante  TipoComprobante
+  metodoPago       MetodoPago?
+  formaPago        String?
+  fechaEmision     DateTime
+  rfcEmisor        String
+  nombreEmisor     String
+  rfcReceptor      String
+  nombreReceptor   String
+  subtotal         Decimal
+  total            Decimal
+  moneda           String          @default("MXN")
+  tipoCambio       Decimal         @default(1)
+  saldoPendiente   Decimal
+  direccion        CfdiDireccion
+  status           CfdiStatus      @default(PENDIENTE)
+  relatedUuidsJson Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reconciliations Reconciliation[]
+
+  @@index([clientId, fechaEmision])
+  @@index([clientId, status])
+  @@index([rfcEmisor])
+  @@index([rfcReceptor])
+}
+
+model BankTransaction {
+  id            String                @id @default(cuid())
+  bankAccountId String
+  clientId      String
+  fecha         DateTime
+  concepto      String
+  monto         Decimal
+  tipo          BankTransactionTipo
+  hashUnico     String                @unique
+  status        BankTransactionStatus @default(SIN_FACTURA)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  bankAccount     BankAccount      @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  reconciliations Reconciliation[]
+
+  @@index([clientId, fecha])
+  @@index([clientId, status])
+  @@index([bankAccountId])
+}
+
+model Reconciliation {
+  id                String               @id @default(cuid())
+  clientId          String
+  cfdiId            String
+  bankTransactionId String
+  montoAplicado     Decimal
+  matchType         MatchType
+  confidenceScore   Int
+  status            ReconciliationStatus @default(AUTO)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  cfdi            Cfdi            @relation(fields: [cfdiId], references: [id], onDelete: Cascade)
+  bankTransaction BankTransaction @relation(fields: [bankTransactionId], references: [id], onDelete: Cascade)
+
+  @@unique([cfdiId, bankTransactionId])
+  @@index([clientId, status])
+  @@index([cfdiId])
+  @@index([bankTransactionId])
+}
